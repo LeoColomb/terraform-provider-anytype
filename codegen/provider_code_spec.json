@@ -1,0 +1,422 @@
+{
+	"datasources": [
+		{
+			"name": "property",
+			"schema": {
+				"attributes": [
+					{
+						"name": "space_id",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The ID of the space to which the property belongs; must be retrieved from ListSpaces endpoint"
+						}
+					},
+					{
+						"name": "id",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The ID of the property to retrieve; must be retrieved from ListProperties endpoint or obtained from response context"
+						}
+					},
+					{
+						"name": "property",
+						"single_nested": {
+							"computed_optional_required": "computed",
+							"attributes": [
+								{
+									"name": "format",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The format of the property used for filtering"
+									}
+								},
+								{
+									"name": "id",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The id of the property"
+									}
+								},
+								{
+									"name": "key",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The key of the property"
+									}
+								},
+								{
+									"name": "name",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The name of the property"
+									}
+								},
+								{
+									"name": "object",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The data model of the object"
+									}
+								}
+							],
+							"description": "The property"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "tag",
+			"schema": {
+				"attributes": [
+					{
+						"name": "space_id",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The ID of the space to retrieve the tag from; must be retrieved from ListSpaces endpoint"
+						}
+					},
+					{
+						"name": "property_id",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The ID of the property to retrieve the tag for; must be retrieved from ListProperties endpoint or obtained from response context"
+						}
+					},
+					{
+						"name": "id",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The ID of the tag to retrieve; must be retrieved from ListTags endpoint or obtained from response context"
+						}
+					},
+					{
+						"name": "tag",
+						"single_nested": {
+							"computed_optional_required": "computed",
+							"attributes": [
+								{
+									"name": "color",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The color of the icon"
+									}
+								},
+								{
+									"name": "id",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The id of the tag"
+									}
+								},
+								{
+									"name": "key",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The key of the tag"
+									}
+								},
+								{
+									"name": "name",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The name of the tag"
+									}
+								},
+								{
+									"name": "object",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The data model of the object"
+									}
+								}
+							],
+							"description": "The selected tag value of the property"
+						}
+					}
+				]
+			}
+		}
+	],
+	"provider": {
+		"name": "anytype"
+	},
+	"resources": [
+		{
+			"name": "property",
+			"schema": {
+				"attributes": [
+					{
+						"name": "format",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The format of the property used for filtering",
+							"validators": [
+								{
+									"custom": {
+										"imports": [
+											{
+												"path": "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+											}
+										],
+										"schema_definition": "stringvalidator.OneOf(\n\"text\",\n\"number\",\n\"select\",\n\"multi_select\",\n\"date\",\n\"files\",\n\"checkbox\",\n\"url\",\n\"email\",\n\"phone\",\n\"objects\",\n)"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "key",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The key of the property; should always be snake_case, otherwise it will be converted to snake_case"
+						}
+					},
+					{
+						"name": "name",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The name of the property"
+						}
+					},
+					{
+						"name": "tags",
+						"list_nested": {
+							"computed_optional_required": "computed_optional",
+							"nested_object": {
+								"attributes": [
+									{
+										"name": "color",
+										"string": {
+											"computed_optional_required": "required",
+											"description": "The color of the icon",
+											"validators": [
+												{
+													"custom": {
+														"imports": [
+															{
+																"path": "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+															}
+														],
+														"schema_definition": "stringvalidator.OneOf(\n\"grey\",\n\"yellow\",\n\"orange\",\n\"red\",\n\"pink\",\n\"purple\",\n\"blue\",\n\"ice\",\n\"teal\",\n\"lime\",\n)"
+													}
+												}
+											]
+										}
+									},
+									{
+										"name": "key",
+										"string": {
+											"computed_optional_required": "computed_optional",
+											"description": "The optional custom key for the tag"
+										}
+									},
+									{
+										"name": "name",
+										"string": {
+											"computed_optional_required": "required",
+											"description": "The name of the tag"
+										}
+									}
+								]
+							},
+							"description": "Tags to create for select/multi_select properties"
+						}
+					},
+					{
+						"name": "property",
+						"single_nested": {
+							"computed_optional_required": "computed",
+							"attributes": [
+								{
+									"name": "format",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The format of the property used for filtering"
+									}
+								},
+								{
+									"name": "id",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The id of the property"
+									}
+								},
+								{
+									"name": "key",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The key of the property"
+									}
+								},
+								{
+									"name": "name",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The name of the property"
+									}
+								},
+								{
+									"name": "object",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The data model of the object"
+									}
+								}
+							],
+							"description": "The property"
+						}
+					},
+					{
+						"name": "space_id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the space to which the property belongs; must be retrieved from ListSpaces endpoint"
+						}
+					},
+					{
+						"name": "id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the property to retrieve; must be retrieved from ListProperties endpoint or obtained from response context"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "space",
+			"schema": {
+				"attributes": [
+					{
+						"name": "description",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The description of the space"
+						}
+					},
+					{
+						"name": "name",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The name of the space"
+						}
+					},
+					{
+						"name": "id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the space to retrieve; must be retrieved from ListSpaces endpoint"
+						}
+					}
+				]
+			}
+		},
+		{
+			"name": "tag",
+			"schema": {
+				"attributes": [
+					{
+						"name": "color",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The color of the icon",
+							"validators": [
+								{
+									"custom": {
+										"imports": [
+											{
+												"path": "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+											}
+										],
+										"schema_definition": "stringvalidator.OneOf(\n\"grey\",\n\"yellow\",\n\"orange\",\n\"red\",\n\"pink\",\n\"purple\",\n\"blue\",\n\"ice\",\n\"teal\",\n\"lime\",\n)"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "key",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The optional custom key for the tag"
+						}
+					},
+					{
+						"name": "name",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "The name of the tag"
+						}
+					},
+					{
+						"name": "tag",
+						"single_nested": {
+							"computed_optional_required": "computed",
+							"attributes": [
+								{
+									"name": "color",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The color of the icon"
+									}
+								},
+								{
+									"name": "id",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The id of the tag"
+									}
+								},
+								{
+									"name": "key",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The key of the tag"
+									}
+								},
+								{
+									"name": "name",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The name of the tag"
+									}
+								},
+								{
+									"name": "object",
+									"string": {
+										"computed_optional_required": "computed",
+										"description": "The data model of the object"
+									}
+								}
+							],
+							"description": "The selected tag value of the property"
+						}
+					},
+					{
+						"name": "space_id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the space to retrieve the tag from; must be retrieved from ListSpaces endpoint"
+						}
+					},
+					{
+						"name": "property_id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the property to retrieve the tag for; must be retrieved from ListProperties endpoint or obtained from response context"
+						}
+					},
+					{
+						"name": "id",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "The ID of the tag to retrieve; must be retrieved from ListTags endpoint or obtained from response context"
+						}
+					}
+				]
+			}
+		}
+	],
+	"version": "0.1"
+}

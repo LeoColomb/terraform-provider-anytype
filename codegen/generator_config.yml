@@ -1,0 +1,171 @@
+# Generator configuration for tfplugingen-openapi.
+#
+# Maps the Anytype OpenAPI specification to Terraform provider resources and
+# data sources. Regenerate with `make generate-spec`.
+#
+# NOTE ON COVERAGE
+# ----------------
+# The Anytype OpenAPI uses a polymorphic `Icon` (`oneOf`) and generic
+# `PaginatedResponse { data: [...], pagination: {...} }` envelopes. The
+# Terraform Plugin Framework code generator (v0.4.x) does not yet support
+# `oneOf` compositions, and emits colliding Go type names for listing
+# endpoints. As a result this config is intentionally restricted to
+# singular, non-polymorphic operations. The plural list data sources (spaces,
+# types, properties, tags, objects, members, templates) and anything that
+# relies on `Icon` are written by hand on top of the generated schemas — see
+# `internal/provider/`.
+
+provider:
+  name: anytype
+
+resources:
+  space:
+    create:
+      path: /v1/spaces
+      method: POST
+    read:
+      path: /v1/spaces/{space_id}
+      method: GET
+    update:
+      path: /v1/spaces/{space_id}
+      method: PATCH
+    schema:
+      attributes:
+        aliases:
+          space_id: id
+
+  type:
+    create:
+      path: /v1/spaces/{space_id}/types
+      method: POST
+    read:
+      path: /v1/spaces/{space_id}/types/{type_id}
+      method: GET
+    update:
+      path: /v1/spaces/{space_id}/types/{type_id}
+      method: PATCH
+    delete:
+      path: /v1/spaces/{space_id}/types/{type_id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          type_id: id
+
+  property:
+    create:
+      path: /v1/spaces/{space_id}/properties
+      method: POST
+    read:
+      path: /v1/spaces/{space_id}/properties/{property_id}
+      method: GET
+    update:
+      path: /v1/spaces/{space_id}/properties/{property_id}
+      method: PATCH
+    delete:
+      path: /v1/spaces/{space_id}/properties/{property_id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          property_id: id
+
+  tag:
+    create:
+      path: /v1/spaces/{space_id}/properties/{property_id}/tags
+      method: POST
+    read:
+      path: /v1/spaces/{space_id}/properties/{property_id}/tags/{tag_id}
+      method: GET
+    update:
+      path: /v1/spaces/{space_id}/properties/{property_id}/tags/{tag_id}
+      method: PATCH
+    delete:
+      path: /v1/spaces/{space_id}/properties/{property_id}/tags/{tag_id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          tag_id: id
+
+  object:
+    create:
+      path: /v1/spaces/{space_id}/objects
+      method: POST
+    read:
+      path: /v1/spaces/{space_id}/objects/{object_id}
+      method: GET
+    update:
+      path: /v1/spaces/{space_id}/objects/{object_id}
+      method: PATCH
+    delete:
+      path: /v1/spaces/{space_id}/objects/{object_id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          object_id: id
+
+data_sources:
+  space:
+    read:
+      path: /v1/spaces/{space_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          space_id: id
+
+  type:
+    read:
+      path: /v1/spaces/{space_id}/types/{type_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          type_id: id
+
+  property:
+    read:
+      path: /v1/spaces/{space_id}/properties/{property_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          property_id: id
+
+  tag:
+    read:
+      path: /v1/spaces/{space_id}/properties/{property_id}/tags/{tag_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          tag_id: id
+
+  object:
+    read:
+      path: /v1/spaces/{space_id}/objects/{object_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          object_id: id
+
+  member:
+    read:
+      path: /v1/spaces/{space_id}/members/{member_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          member_id: id
+
+  template:
+    read:
+      path: /v1/spaces/{space_id}/types/{type_id}/templates/{template_id}
+      method: GET
+    schema:
+      attributes:
+        aliases:
+          template_id: id
