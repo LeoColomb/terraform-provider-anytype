@@ -9,7 +9,7 @@ GEN_RESOURCES_OUT    ?= internal/generated/resource_schemas
 GEN_DATASOURCES_OUT  ?= internal/generated/datasource_schemas
 GEN_PROVIDER_OUT     ?= internal/generated/provider_schema
 
-default: fmt build
+default: fmt lint build test
 
 build:
 	go build -v ./...
@@ -23,11 +23,16 @@ tidy:
 fmt:
 	gofmt -s -w -e .
 
+lint:
+	golangci-lint run
+
 test:
 	go test -v -cover -timeout=120s -parallel=10 ./...
 
 testacc:
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
+
+check: fmt lint test
 
 ## --- Code generation ------------------------------------------------------
 
@@ -67,4 +72,4 @@ generate: generate-spec generate-code fmt
 docs:
 	cd tools && go generate ./...
 
-.PHONY: default build install tidy fmt test testacc fetch-spec generate-spec generate-code generate docs
+.PHONY: default build install tidy fmt lint check test testacc fetch-spec generate-spec generate-code generate docs
