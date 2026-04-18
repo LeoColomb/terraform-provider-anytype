@@ -13,6 +13,16 @@
   and `ANYTYPE_API_VERSION` environment variables).
 - `anytype_space` resource (create, read, update, import).
 - `anytype_space` and `anytype_spaces` data sources.
+- `anytype_type` resource (create, read, update, delete, import) with support
+  for linking properties by `key`/`name`/`format`, plus matching
+  `anytype_type` and `anytype_types` data sources.
+- `anytype_property` resource (create, read, update, delete, import) with
+  optional create-time `tags` seeding for `select` / `multi_select`
+  formats, plus matching `anytype_property` and `anytype_properties` data
+  sources.
+- End-to-end examples under `examples/resources/anytype_type/` showing how
+  to declare a space, properties, and a type with linked properties
+  together.
 - Thin typed HTTP client for the Anytype API with unit tests.
 - GitHub Actions workflows for build + lint + unit tests on every push/PR,
   a reproducibility check that `make generate` produces no diff, and an
