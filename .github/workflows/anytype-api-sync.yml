@@ -1,0 +1,73 @@
+# Scheduled workflow that watches the Anytype API for a new published spec
+# version and opens a pull request bumping the pinned version.
+#
+# When a bump is detected, the workflow also runs the generate composite
+# action to validate that the new spec still produces compilable provider
+# code before the PR is opened — the regenerated files themselves are
+# gitignored, so only the version-pin changes land in the PR.
+name: Sync Anytype API
+
+on:
+  schedule:
+    # Daily at 07:00 UTC.
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Check for a new Anytype API version
+        id: sync
+        run: bash scripts/sync-anytype-api.sh
+
+      - name: Validate generation against the new spec
+        if: steps.sync.outputs.changed == 'true'
+        uses: ./.github/actions/generate
+
+      - name: Build + unit tests against regenerated code
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          go mod download
+          go build -v ./...
+          go test -v -cover -timeout=120s -parallel=10 ./...
+
+      - name: Open pull request
+        if: steps.sync.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          commit-message: "chore(anytype-api): bump spec to ${{ steps.sync.outputs.latest_version }}"
+          branch: "chore/anytype-api-${{ steps.sync.outputs.latest_version }}"
+          delete-branch: true
+          title: "chore(anytype-api): bump spec to ${{ steps.sync.outputs.latest_version }}"
+          body: |
+            A new [Anytype API](https://github.com/anyproto/anytype-api) spec version has been published.
+
+            - Previous pinned version: `${{ steps.sync.outputs.current_version }}`
+            - New pinned version: `${{ steps.sync.outputs.latest_version }}`
+            - Spec download URL: ${{ steps.sync.outputs.latest_download_url }}
+
+            This PR bumps the pinned version strings only:
+            - `APIVersion` constant in `internal/client/client.go`
+            - `OPENAPI_URL` default in `GNUmakefile`
+
+            The regenerated provider code is gitignored; CI regenerates it on
+            every run via the `./.github/actions/generate` composite action.
+            This workflow already validated that `make generate` and the unit
+            tests pass against the new spec, but breaking changes may still
+            need hand edits in `internal/provider/` before the PR can merge.
+          labels: |
+            dependencies
+            anytype-api
