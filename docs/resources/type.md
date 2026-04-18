@@ -1,8 +1,10 @@
 # anytype_type (Resource)
 
 Manages an [Anytype type](https://anytype.io) inside a space. A type describes
-the shape of objects and can declare a set of linked properties by
-`key` / `name` / `format`.
+the shape of objects and links to existing `anytype_property` resources by
+`id`. The provider resolves the backend-required `key` / `name` / `format`
+triplet automatically, so the consuming type never has to re-declare
+attributes of the properties it links.
 
 ## Example Usage
 
@@ -30,11 +32,7 @@ resource "anytype_type" "account" {
   layout      = "basic"
 
   properties = [
-    {
-      key    = anytype_property.status.key
-      name   = anytype_property.status.name
-      format = anytype_property.status.format
-    },
+    { id = anytype_property.status.id },
   ]
 }
 ```
@@ -53,13 +51,12 @@ resource "anytype_type" "account" {
 
 - `key` (String) — The snake_case key of the type. If omitted, Anytype
   generates one.
-- `properties` (List of Object) — Properties linked to this type. Each object
-  has:
-  - `key` (String, required)
-  - `name` (String, required)
-  - `format` (String, required) — One of `text`, `number`, `select`,
-    `multi_select`, `date`, `files`, `checkbox`, `url`, `email`, `phone`,
-    `objects`.
+- `properties` (List of Object) — Properties linked to this type. Each entry
+  references an existing `anytype_property` by `id`:
+  - `id` (String, required) — The ID of the `anytype_property` to link.
+  - `key` (String, read-only) — Resolved from `id`.
+  - `name` (String, read-only) — Resolved from `id`.
+  - `format` (String, read-only) — Resolved from `id`.
 
 ### Read-Only
 

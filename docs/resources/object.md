@@ -1,9 +1,11 @@
 # anytype_object (Resource)
 
 Manages an [Anytype object](https://anytype.io) inside a space. Objects are
-concrete instances of an `anytype_type` — this resource manages their name,
-markdown body, and type-key mapping. The polymorphic `properties` array (a
-`oneOf` in the OpenAPI) is not yet exposed by the provider.
+concrete instances of an `anytype_type`. The parent type is referenced by
+`type_id` (preferred — lets the provider resolve the backend `type_key`) or
+by `type_key` (useful for referencing built-in types that are not managed as
+Terraform resources). The polymorphic `properties` array (a `oneOf` in the
+OpenAPI) is not yet exposed by the provider.
 
 ## Example Usage
 
@@ -17,7 +19,7 @@ resource "anytype_type" "note" {
 
 resource "anytype_object" "welcome" {
   space_id = anytype_space.wiki.id
-  type_key = anytype_type.note.key
+  type_id  = anytype_type.note.id
   name     = "Welcome"
   body     = "# Welcome\nManaged by Terraform."
 }
@@ -29,8 +31,15 @@ resource "anytype_object" "welcome" {
 
 - `space_id` (String) — The ID of the space. Changing this forces a new
   resource.
-- `type_key` (String) — The key of the type of the object. Changing this
-  forces a new resource.
+
+Exactly one of:
+
+- `type_id` (String) — The ID of the parent `anytype_type`. The provider
+  resolves its backend `key` automatically. Changing this forces a new
+  resource.
+- `type_key` (String) — The backend key of the type, for referencing
+  built-in types not managed as Terraform resources. Changing this forces a
+  new resource.
 
 ### Optional
 

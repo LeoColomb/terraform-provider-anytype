@@ -42,13 +42,15 @@ func (r *typeResource) Metadata(_ context.Context, req resource.MetadataRequest,
 // Schema starts from the code-generated schema (validators and descriptions
 // derived from the Anytype OpenAPI) and layers the Terraform-specific
 // adjustments on top: `id` is Computed-only, `space_id` is Required with
-// RequiresReplace, the response envelope is flattened to top level, and the
-// generated CustomType is stripped from `properties` so the resource model
-// can use an ordinary slice.
+// RequiresReplace, the response envelope is flattened to top level, and
+// `properties` is replaced with a nested block that references existing
+// `anytype_property` resources by `id` — the backend-required
+// `key` / `name` / `format` triplet is resolved by the provider so users
+// never have to re-declare those attributes on the consuming type.
 func (r *typeResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	s := resource_schemas.TypeResourceSchema(ctx)
 	s.MarkdownDescription = "Manages an [Anytype type](https://anytype.io) inside a space. " +
-		"Types define the shape of objects and can link to `anytype_property` resources."
+		"Types define the shape of objects and link to `anytype_property` resources by `id`."
 
 	s.Attributes["id"] = schema.StringAttribute{
 		MarkdownDescription: "The ID of the type.",
@@ -73,26 +75,45 @@ func (r *typeResource) Schema(ctx context.Context, _ resource.SchemaRequest, res
 		},
 	}
 
-	// Strip the generated CustomType from `properties` so the resource model
-	// can use a plain []propertyLinkModel. Validators are preserved.
-	if gen, ok := s.Attributes["properties"].(schema.ListNestedAttribute); ok {
-		inner := make(map[string]schema.Attribute, len(gen.NestedObject.Attributes))
-		for name, child := range gen.NestedObject.Attributes {
-			if sa, ok := child.(schema.StringAttribute); ok {
-				sa.CustomType = nil
-				inner[name] = sa
-			} else {
-				inner[name] = child
-			}
-		}
-		s.Attributes["properties"] = schema.ListNestedAttribute{
-			MarkdownDescription: gen.MarkdownDescription,
-			Optional:            true,
-			Computed:            false,
-			NestedObject: schema.NestedAttributeObject{
-				Attributes: inner,
+	// Replace the generated `properties` schema with a nested block keyed on
+	// property `id`. The `key` / `name` / `format` attributes required by the
+	// Anytype API are Computed here: the provider resolves them by calling
+	// GetProperty on the referenced IDs, so consumers can simply write
+	// `{ id = anytype_property.foo.id }` without repeating those fields.
+	s.Attributes["properties"] = schema.ListNestedAttribute{
+		MarkdownDescription: "Properties linked to this type. Each entry references an " +
+			"existing `anytype_property` by `id`; the provider resolves the backend-required " +
+			"`key` / `name` / `format` triplet automatically.",
+		Optional: true,
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				"id": schema.StringAttribute{
+					MarkdownDescription: "The ID of the `anytype_property` to link.",
+					Required:            true,
+				},
+				"key": schema.StringAttribute{
+					MarkdownDescription: "The key of the linked property (resolved from `id`).",
+					Computed:            true,
+					PlanModifiers: []planmodifier.String{
+						stringplanmodifier.UseStateForUnknown(),
+					},
+				},
+				"name": schema.StringAttribute{
+					MarkdownDescription: "The name of the linked property (resolved from `id`).",
+					Computed:            true,
+					PlanModifiers: []planmodifier.String{
+						stringplanmodifier.UseStateForUnknown(),
+					},
+				},
+				"format": schema.StringAttribute{
+					MarkdownDescription: "The format of the linked property (resolved from `id`).",
+					Computed:            true,
+					PlanModifiers: []planmodifier.String{
+						stringplanmodifier.UseStateForUnknown(),
+					},
+				},
 			},
-		}
+		},
 	}
 
 	flattenResponseEnvelope(s.Attributes, "type")
@@ -132,7 +153,12 @@ type typeResourceModel struct {
 	Properties []propertyLinkModel `tfsdk:"properties"`
 }
 
+// propertyLinkModel is the nested-object state for `anytype_type.properties`.
+// `ID` is the user-provided reference to an `anytype_property`; the remaining
+// fields are resolved by the provider and exposed as Computed so the user
+// does not have to repeat them in configuration.
 type propertyLinkModel struct {
+	ID     types.String `tfsdk:"id"`
 	Key    types.String `tfsdk:"key"`
 	Name   types.String `tfsdk:"name"`
 	Format types.String `tfsdk:"format"`
@@ -147,6 +173,45 @@ func (m *typeResourceModel) fromAPI(t *client.Type) {
 	m.Object = types.StringValue(t.Object)
 	m.Archived = types.BoolValue(t.Archived)
 	m.Icon = iconFromAPI(t.Icon)
+
+	// Refresh the Computed triplet on each linked property from the API
+	// response so drift is surfaced when a linked property is renamed /
+	// changes key. The user-authored `id` is preserved when it matches the
+	// API entry by position.
+	if len(t.Properties) == 0 {
+		m.Properties = nil
+		return
+	}
+	out := make([]propertyLinkModel, len(t.Properties))
+	for i, p := range t.Properties {
+		out[i] = propertyLinkModel{
+			ID:     types.StringValue(p.ID),
+			Key:    types.StringValue(p.Key),
+			Name:   types.StringValue(p.Name),
+			Format: types.StringValue(p.Format),
+		}
+	}
+	m.Properties = out
+}
+
+// resolveProperties looks up each linked property by ID to obtain the
+// `key` / `name` / `format` triplet the API requires and fills in the
+// Computed attributes in-place.
+func (m *typeResourceModel) resolveProperties(ctx context.Context, c *client.Client) error {
+	for i := range m.Properties {
+		id := m.Properties[i].ID.ValueString()
+		if id == "" {
+			return fmt.Errorf("properties[%d].id must be a non-empty property ID", i)
+		}
+		p, err := c.GetProperty(ctx, m.SpaceID.ValueString(), id)
+		if err != nil {
+			return fmt.Errorf("properties[%d] (id=%s): %w", i, id, err)
+		}
+		m.Properties[i].Key = types.StringValue(p.Key)
+		m.Properties[i].Name = types.StringValue(p.Name)
+		m.Properties[i].Format = types.StringValue(p.Format)
+	}
+	return nil
 }
 
 func (m *typeResourceModel) propertyLinks() []client.PropertyLink {
@@ -168,6 +233,11 @@ func (r *typeResource) Create(ctx context.Context, req resource.CreateRequest, r
 	var plan typeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := plan.resolveProperties(ctx, r.client); err != nil {
+		resp.Diagnostics.AddError("Unable to resolve linked properties", err.Error())
 		return
 	}
 
@@ -217,6 +287,14 @@ func (r *typeResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	propertiesChanged := !propertyLinksEqual(plan.Properties, state.Properties)
+	if propertiesChanged {
+		if err := plan.resolveProperties(ctx, r.client); err != nil {
+			resp.Diagnostics.AddError("Unable to resolve linked properties", err.Error())
+			return
+		}
+	}
+
 	update := client.UpdateTypeRequest{}
 	if !plan.Name.Equal(state.Name) {
 		name := plan.Name.ValueString()
@@ -234,7 +312,7 @@ func (r *typeResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		k := plan.Key.ValueString()
 		update.Key = &k
 	}
-	if !propertyLinksEqual(plan.Properties, state.Properties) {
+	if propertiesChanged {
 		links := plan.propertyLinks()
 		update.Properties = &links
 	}
@@ -282,14 +360,15 @@ func (r *typeResource) ImportState(ctx context.Context, req resource.ImportState
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), typeID)...)
 }
 
+// propertyLinksEqual compares plan and state entries by the user-authored
+// `id`. The Computed triplet is derived from that id, so equality on id
+// implies equality on the rest of the link.
 func propertyLinksEqual(a, b []propertyLinkModel) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if !a[i].Key.Equal(b[i].Key) ||
-			!a[i].Name.Equal(b[i].Name) ||
-			!a[i].Format.Equal(b[i].Format) {
+		if !a[i].ID.Equal(b[i].ID) {
 			return false
 		}
 	}
