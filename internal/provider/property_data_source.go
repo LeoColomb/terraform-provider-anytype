@@ -9,10 +9,10 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/datasource_schemas"
 )
 
 var (
@@ -42,18 +42,12 @@ func (d *propertyDataSource) Metadata(_ context.Context, req datasource.Metadata
 	resp.TypeName = req.ProviderTypeName + "_property"
 }
 
-func (d *propertyDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up a single Anytype property by ID in a given space.",
-		Attributes: map[string]schema.Attribute{
-			"id":       schema.StringAttribute{MarkdownDescription: "The ID of the property.", Required: true},
-			"space_id": schema.StringAttribute{MarkdownDescription: "The ID of the space.", Required: true},
-			"key":      schema.StringAttribute{MarkdownDescription: "The snake_case key of the property.", Computed: true},
-			"name":     schema.StringAttribute{MarkdownDescription: "The name of the property.", Computed: true},
-			"format":   schema.StringAttribute{MarkdownDescription: "The property format.", Computed: true},
-			"object":   schema.StringAttribute{MarkdownDescription: "The data model of the object.", Computed: true},
-		},
-	}
+func (d *propertyDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	s := datasource_schemas.PropertyDataSourceSchema(ctx)
+	s.MarkdownDescription = "Look up a single Anytype property by ID in a given space."
+	flattenResponseEnvelopeDS(s.Attributes, "property")
+
+	resp.Schema = s
 }
 
 func (d *propertyDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {

@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/resource_schemas"
 )
 
 var (
@@ -38,76 +39,74 @@ func (r *propertyResource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_property"
 }
 
-func (r *propertyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages an [Anytype property](https://anytype.io) inside a space. " +
-			"Properties describe typed fields that can be attached to `anytype_type` definitions.",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				MarkdownDescription: "The ID of the property.",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"space_id": schema.StringAttribute{
-				MarkdownDescription: "The ID of the space the property belongs to.",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"key": schema.StringAttribute{
-				MarkdownDescription: "The snake_case key of the property. If omitted, Anytype generates one.",
-				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "The human-readable name of the property.",
-				Required:            true,
-			},
-			"format": schema.StringAttribute{
-				MarkdownDescription: "The property format. One of `text`, `number`, `select`, `multi_select`, " +
-					"`date`, `files`, `checkbox`, `url`, `email`, `phone`, `objects`. Immutable once created.",
-				Required: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"object": schema.StringAttribute{
-				MarkdownDescription: "The data model of the object (`property`).",
-				Computed:            true,
-			},
-			"tags": schema.ListNestedAttribute{
-				MarkdownDescription: "Initial tags to seed for `select` / `multi_select` properties. " +
-					"Tags are immutable once created; changes force the property to be replaced.",
-				Optional: true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
-				},
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"name": schema.StringAttribute{
-							MarkdownDescription: "The display name of the tag.",
-							Required:            true,
-						},
-						"color": schema.StringAttribute{
-							MarkdownDescription: "The tag color. One of `grey`, `yellow`, `orange`, `red`, " +
-								"`pink`, `purple`, `blue`, `ice`, `teal`, `lime`.",
-							Required: true,
-						},
-						"key": schema.StringAttribute{
-							MarkdownDescription: "Optional custom key for the tag.",
-							Optional:            true,
-						},
-					},
-				},
-			},
+// Schema starts from the code-generated schema (validators — notably the
+// OneOf enums for `format` and tag `color` — and descriptions come from the
+// Anytype OpenAPI) and layers the Terraform-specific adjustments on top:
+// `id` is Computed-only, `space_id` and `format` are Required with
+// RequiresReplace, the response envelope is flattened, and the generated
+// CustomType is stripped from `tags` so the resource model can use an
+// ordinary slice.
+func (r *propertyResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	s := resource_schemas.PropertyResourceSchema(ctx)
+	s.MarkdownDescription = "Manages an [Anytype property](https://anytype.io) inside a space. " +
+		"Properties describe typed fields that can be attached to `anytype_type` definitions."
+
+	s.Attributes["id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the property.",
+		Computed:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
 		},
 	}
+	s.Attributes["space_id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the space the property belongs to.",
+		Required:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+		},
+	}
+	s.Attributes["key"] = schema.StringAttribute{
+		MarkdownDescription: "The snake_case key of the property. If omitted, Anytype generates one.",
+		Optional:            true,
+		Computed:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
+		},
+	}
+
+	// Keep the generated OneOf validator on `format` but force replacement
+	// when it changes (the API does not allow changing a property format).
+	if gen, ok := s.Attributes["format"].(schema.StringAttribute); ok {
+		gen.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
+		s.Attributes["format"] = gen
+	}
+
+	// Strip the generated CustomType from `tags` and make it strictly
+	// Optional + RequiresReplace (tags are create-time only in this provider).
+	if gen, ok := s.Attributes["tags"].(schema.ListNestedAttribute); ok {
+		inner := make(map[string]schema.Attribute, len(gen.NestedObject.Attributes))
+		for name, child := range gen.NestedObject.Attributes {
+			if sa, ok := child.(schema.StringAttribute); ok {
+				sa.CustomType = nil
+				inner[name] = sa
+			} else {
+				inner[name] = child
+			}
+		}
+		s.Attributes["tags"] = schema.ListNestedAttribute{
+			MarkdownDescription: "Initial tags to seed for `select` / `multi_select` properties. " +
+				"Tags are immutable once created; changes force the property to be replaced.",
+			Optional: true,
+			PlanModifiers: []planmodifier.List{
+				listplanmodifier.RequiresReplace(),
+			},
+			NestedObject: schema.NestedAttributeObject{Attributes: inner},
+		}
+	}
+
+	flattenResponseEnvelope(s.Attributes, "property")
+
+	resp.Schema = s
 }
 
 func (r *propertyResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

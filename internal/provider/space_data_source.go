@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/datasource_schemas"
 )
 
 var (
@@ -42,18 +43,17 @@ func (d *spaceDataSource) Metadata(_ context.Context, req datasource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_space"
 }
 
-func (d *spaceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up a single Anytype space by ID.",
-		Attributes: map[string]schema.Attribute{
-			"id":          schema.StringAttribute{MarkdownDescription: "The ID of the space.", Required: true},
-			"name":        schema.StringAttribute{MarkdownDescription: "The name of the space.", Computed: true},
-			"description": schema.StringAttribute{MarkdownDescription: "The description of the space.", Computed: true},
-			"network_id":  schema.StringAttribute{MarkdownDescription: "The Anytype network the space belongs to.", Computed: true},
-			"gateway_url": schema.StringAttribute{MarkdownDescription: "Gateway URL used to serve files and media for this space.", Computed: true},
-			"object":      schema.StringAttribute{MarkdownDescription: "The data model of the object.", Computed: true},
-		},
+func (d *spaceDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	s := datasource_schemas.SpaceDataSourceSchema(ctx)
+	s.MarkdownDescription = "Look up a single Anytype space by ID."
+
+	s.Attributes["id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the space.",
+		Required:            true,
 	}
+	flattenResponseEnvelopeDS(s.Attributes, "space")
+
+	resp.Schema = s
 }
 
 func (d *spaceDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {

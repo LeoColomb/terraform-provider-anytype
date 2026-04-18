@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/resource_schemas"
 )
 
 var (
@@ -38,77 +39,65 @@ func (r *typeResource) Metadata(_ context.Context, req resource.MetadataRequest,
 	resp.TypeName = req.ProviderTypeName + "_type"
 }
 
-func (r *typeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages an [Anytype type](https://anytype.io) inside a space. " +
-			"Types define the shape of objects and can link to `anytype_property` resources.",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				MarkdownDescription: "The ID of the type.",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"space_id": schema.StringAttribute{
-				MarkdownDescription: "The ID of the space the type belongs to.",
-				Required:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"key": schema.StringAttribute{
-				MarkdownDescription: "The snake_case key of the type. If omitted, Anytype generates one.",
-				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "The singular name of the type (e.g. `Page`).",
-				Required:            true,
-			},
-			"plural_name": schema.StringAttribute{
-				MarkdownDescription: "The plural name of the type (e.g. `Pages`).",
-				Required:            true,
-			},
-			"layout": schema.StringAttribute{
-				MarkdownDescription: "The layout of objects of this type. One of `basic`, `profile`, `action`, `note`.",
-				Required:            true,
-			},
-			"object": schema.StringAttribute{
-				MarkdownDescription: "The data model of the object (`type`).",
-				Computed:            true,
-			},
-			"archived": schema.BoolAttribute{
-				MarkdownDescription: "Whether the type is archived.",
-				Computed:            true,
-			},
-			"properties": schema.ListNestedAttribute{
-				MarkdownDescription: "Properties linked to this type. Each entry must reference an existing " +
-					"`anytype_property` in the same space (by `key` / `name` / `format`).",
-				Optional: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"key": schema.StringAttribute{
-							MarkdownDescription: "The snake_case key of the property.",
-							Required:            true,
-						},
-						"name": schema.StringAttribute{
-							MarkdownDescription: "The human-readable name of the property.",
-							Required:            true,
-						},
-						"format": schema.StringAttribute{
-							MarkdownDescription: "The property format (`text`, `number`, `select`, `multi_select`, " +
-								"`date`, `files`, `checkbox`, `url`, `email`, `phone`, `objects`).",
-							Required: true,
-						},
-					},
-				},
-			},
+// Schema starts from the code-generated schema (validators and descriptions
+// derived from the Anytype OpenAPI) and layers the Terraform-specific
+// adjustments on top: `id` is Computed-only, `space_id` is Required with
+// RequiresReplace, the response envelope is flattened to top level, and the
+// generated CustomType is stripped from `properties` so the resource model
+// can use an ordinary slice.
+func (r *typeResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	s := resource_schemas.TypeResourceSchema(ctx)
+	s.MarkdownDescription = "Manages an [Anytype type](https://anytype.io) inside a space. " +
+		"Types define the shape of objects and can link to `anytype_property` resources."
+
+	s.Attributes["id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the type.",
+		Computed:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
 		},
 	}
+	s.Attributes["space_id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the space the type belongs to.",
+		Required:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+		},
+	}
+	s.Attributes["key"] = schema.StringAttribute{
+		MarkdownDescription: "The snake_case key of the type. If omitted, Anytype generates one.",
+		Optional:            true,
+		Computed:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
+		},
+	}
+
+	// Strip the generated CustomType from `properties` so the resource model
+	// can use a plain []propertyLinkModel. Validators are preserved.
+	if gen, ok := s.Attributes["properties"].(schema.ListNestedAttribute); ok {
+		inner := make(map[string]schema.Attribute, len(gen.NestedObject.Attributes))
+		for name, child := range gen.NestedObject.Attributes {
+			if sa, ok := child.(schema.StringAttribute); ok {
+				sa.CustomType = nil
+				inner[name] = sa
+			} else {
+				inner[name] = child
+			}
+		}
+		s.Attributes["properties"] = schema.ListNestedAttribute{
+			MarkdownDescription: gen.MarkdownDescription,
+			Optional:            true,
+			Computed:            false,
+			NestedObject: schema.NestedAttributeObject{
+				Attributes: inner,
+			},
+		}
+	}
+
+	flattenResponseEnvelope(s.Attributes, "type")
+
+	resp.Schema = s
 }
 
 func (r *typeResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

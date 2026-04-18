@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/resource_schemas"
 )
 
 var (
@@ -37,47 +38,32 @@ func (r *spaceResource) Metadata(_ context.Context, req resource.MetadataRequest
 	resp.TypeName = req.ProviderTypeName + "_space"
 }
 
-// Schema is a hand-tuned variant of the generated SpaceResourceSchema that:
-//   - marks `id` as Computed-only (server-assigned)
-//   - exposes the read-only network_id / gateway_url / object attributes that
-//     the OAS generator could not infer because the Space response schema
-//     contains a polymorphic `icon` that is skipped.
-func (r *spaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages an [Anytype space](https://anytype.io). Anytype does not " +
-			"currently support deleting spaces through the API; on `terraform destroy` the space " +
-			"is removed from state but remains in your Anytype account.",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				MarkdownDescription: "The ID of the space.",
-				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "The name of the space.",
-				Required:            true,
-			},
-			"description": schema.StringAttribute{
-				MarkdownDescription: "The description of the space.",
-				Optional:            true,
-				Computed:            true,
-			},
-			"network_id": schema.StringAttribute{
-				MarkdownDescription: "The Anytype network the space belongs to.",
-				Computed:            true,
-			},
-			"gateway_url": schema.StringAttribute{
-				MarkdownDescription: "The gateway URL used to serve files and media for this space.",
-				Computed:            true,
-			},
-			"object": schema.StringAttribute{
-				MarkdownDescription: "The data model of the object (`space` or `chat`).",
-				Computed:            true,
-			},
+// Schema starts from the code-generated schema (validators and descriptions
+// derived from the Anytype OpenAPI) and layers the Terraform-specific
+// adjustments on top: `id` becomes Computed-only, the polymorphic response
+// envelope is flattened to top-level attributes, and "Anytype does not yet
+// support deleting spaces" is surfaced in the resource description.
+func (r *spaceResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	s := resource_schemas.SpaceResourceSchema(ctx)
+	s.MarkdownDescription = "Manages an [Anytype space](https://anytype.io). Anytype does not " +
+		"currently support deleting spaces through the API; on `terraform destroy` the space " +
+		"is removed from state but remains in your Anytype account."
+
+	s.Attributes["id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the space.",
+		Computed:            true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
 		},
 	}
+
+	// The generated schema wraps the response body under a `space` nested
+	// attribute. Flatten those read-only fields to top level so the resource
+	// stays ergonomic (anytype_space.foo.network_id rather than
+	// anytype_space.foo.space.network_id).
+	flattenResponseEnvelope(s.Attributes, "space")
+
+	resp.Schema = s
 }
 
 func (r *spaceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

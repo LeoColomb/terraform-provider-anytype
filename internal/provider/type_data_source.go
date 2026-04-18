@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
+	"github.com/LeoColomb/terraform-provider-anytype/internal/generated/datasource_schemas"
 )
 
 var (
@@ -52,32 +53,29 @@ func (d *typeDataSource) Metadata(_ context.Context, req datasource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_type"
 }
 
-func (d *typeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up a single Anytype type by ID in a given space.",
-		Attributes: map[string]schema.Attribute{
-			"id":          schema.StringAttribute{MarkdownDescription: "The ID of the type.", Required: true},
-			"space_id":    schema.StringAttribute{MarkdownDescription: "The ID of the space.", Required: true},
-			"key":         schema.StringAttribute{MarkdownDescription: "The snake_case key of the type.", Computed: true},
-			"name":        schema.StringAttribute{MarkdownDescription: "The singular name of the type.", Computed: true},
-			"plural_name": schema.StringAttribute{MarkdownDescription: "The plural name of the type.", Computed: true},
-			"layout":      schema.StringAttribute{MarkdownDescription: "The layout of the type.", Computed: true},
-			"object":      schema.StringAttribute{MarkdownDescription: "The data model of the object.", Computed: true},
-			"archived":    schema.BoolAttribute{MarkdownDescription: "Whether the type is archived.", Computed: true},
-			"properties": schema.ListNestedAttribute{
-				MarkdownDescription: "Properties currently linked to this type.",
-				Computed:            true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id":     schema.StringAttribute{Computed: true, MarkdownDescription: "The ID of the property."},
-						"key":    schema.StringAttribute{Computed: true, MarkdownDescription: "The snake_case key of the property."},
-						"name":   schema.StringAttribute{Computed: true, MarkdownDescription: "The name of the property."},
-						"format": schema.StringAttribute{Computed: true, MarkdownDescription: "The property format."},
-					},
-				},
+// Schema starts from the code-generated data source schema and adds the
+// `properties` list that the OpenAPI generator drops because of a Go
+// type-name collision (see codegen/generator_config.yml).
+func (d *typeDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	s := datasource_schemas.TypeDataSourceSchema(ctx)
+	s.MarkdownDescription = "Look up a single Anytype type by ID in a given space."
+
+	flattenResponseEnvelopeDS(s.Attributes, "type")
+
+	s.Attributes["properties"] = schema.ListNestedAttribute{
+		MarkdownDescription: "Properties currently linked to this type.",
+		Computed:            true,
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				"id":     schema.StringAttribute{Computed: true, MarkdownDescription: "The ID of the property."},
+				"key":    schema.StringAttribute{Computed: true, MarkdownDescription: "The snake_case key of the property."},
+				"name":   schema.StringAttribute{Computed: true, MarkdownDescription: "The name of the property."},
+				"format": schema.StringAttribute{Computed: true, MarkdownDescription: "The property format."},
 			},
 		},
 	}
+
+	resp.Schema = s
 }
 
 func (d *typeDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
