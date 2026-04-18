@@ -23,6 +23,25 @@
 - End-to-end examples under `examples/resources/anytype_type/` showing how
   to declare a space, properties, and a type with linked properties
   together.
+- `anytype_tag` resource (create, read, update, delete, import) and matching
+  `anytype_tag` / `anytype_tags` data sources for managing tags on
+  `select` / `multi_select` properties.
+- `anytype_object` resource (create, read, update, delete, import) and
+  matching `anytype_object` / `anytype_objects` data sources for managing
+  concrete objects inside a space.
+- `anytype_member` and `anytype_members` data sources (read-only).
+- `anytype_template` and `anytype_templates` data sources (read-only).
+
+### Changed
+
+- All hand-written resources and data sources now layer their schemas on top
+  of the code-generated schemas under `internal/generated/`
+  (`resource_schemas` / `datasource_schemas`). The OpenAPI-derived validators
+  (notably the OneOf enums for `layout`, `format`, and tag `color`) and
+  descriptions are picked up automatically; the hand-written code only
+  overrides the attributes that Terraform-specific behaviour requires
+  (Computed-only `id`, RequiresReplace on scope path parameters, flattened
+  response envelope, stripped CustomType wrappers).
 - Thin typed HTTP client for the Anytype API with unit tests.
 - GitHub Actions workflows for build + lint + unit tests on every push/PR,
   a reproducibility check that `make generate` produces no diff, and an

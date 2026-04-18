@@ -103,6 +103,8 @@ func (p *AnytypeProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewSpaceResource,
 		NewTypeResource,
 		NewPropertyResource,
+		NewTagResource,
+		NewObjectResource,
 	}
 }
 
@@ -114,6 +116,14 @@ func (p *AnytypeProvider) DataSources(_ context.Context) []func() datasource.Dat
 		NewTypesDataSource,
 		NewPropertyDataSource,
 		NewPropertiesDataSource,
+		NewTagDataSource,
+		NewTagsDataSource,
+		NewObjectDataSource,
+		NewObjectsDataSource,
+		NewMemberDataSource,
+		NewMembersDataSource,
+		NewTemplateDataSource,
+		NewTemplatesDataSource,
 	}
 }
 
