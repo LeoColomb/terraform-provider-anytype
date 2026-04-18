@@ -22,3 +22,10 @@ modules-dev/
 
 # Keep windows files with windows line endings
 *.winfile eol=crlf
+
+# Generated provider code. The OpenAPI spec, the provider IR, and every Go
+# file under internal/generated/ are regenerated from codegen/generator_config.yml
+# by `make generate` and should not be committed.
+/codegen/openapi.yaml
+/codegen/provider_code_spec.json
+/internal/generated/

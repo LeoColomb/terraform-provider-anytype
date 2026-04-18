@@ -45,22 +45,35 @@ See [`examples/`](./examples) for more.
 ## Building
 
 ```sh
+make generate   # fetch OpenAPI + regenerate schemas (required once)
 go install
 ```
 
 ## Code generation
 
-The provider schema is derived from the Anytype OpenAPI document. To regenerate it:
+The provider schema is derived from the Anytype OpenAPI document. The
+generated artefacts — `codegen/openapi.yaml`,
+`codegen/provider_code_spec.json`, and everything under
+`internal/generated/` — are **not** committed to git; they are produced
+locally and in CI from [`codegen/generator_config.yml`](./codegen/generator_config.yml)
+by running:
 
 ```sh
-make generate-spec   # runs tfplugingen-openapi
+make generate-spec   # runs tfplugingen-openapi (requires the CLI on PATH)
 make generate-code   # runs tfplugingen-framework
-make generate        # full pipeline + docs
+make generate        # full pipeline
 ```
 
-The generator configuration lives in [`codegen/generator_config.yml`](./codegen/generator_config.yml)
-and the intermediate provider-code specification is committed at
-[`codegen/provider_code_spec.json`](./codegen/provider_code_spec.json).
+Install the two codegen CLIs once:
+
+```sh
+go install github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi@latest
+go install github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework@latest
+```
+
+CI runs `make generate` via the [`./.github/actions/generate`](./.github/actions/generate/action.yml)
+composite action before every build, test, and release job, so generated
+code is always produced from the currently pinned spec version.
 
 ## Testing
 

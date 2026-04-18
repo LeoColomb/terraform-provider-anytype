@@ -28,3 +28,12 @@
   `versions.json`, runs `scripts/sync-anytype-api.sh` to bump the pinned
   spec version and regenerate the provider code, and opens a pull request
   when a new version is available.
+
+### Changed
+
+- Generated provider artefacts (`codegen/openapi.yaml`,
+  `codegen/provider_code_spec.json`, everything under `internal/generated/`)
+  are now gitignored. CI regenerates them on every job via a new
+  `.github/actions/generate` composite action, which is also called by the
+  release workflow and the Anytype API sync workflow.
+- Dropped `.github/pull_request_template.md`.

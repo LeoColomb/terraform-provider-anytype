@@ -1,6 +1,10 @@
-# Scheduled workflow that watches the Anytype API for a new published
-# spec version and opens a pull request that bumps the pinned version +
-# regenerates the provider code when one appears.
+# Scheduled workflow that watches the Anytype API for a new published spec
+# version and opens a pull request bumping the pinned version.
+#
+# When a bump is detected, the workflow also runs the generate composite
+# action to validate that the new spec still produces compilable provider
+# code before the PR is opened — the regenerated files themselves are
+# gitignored, so only the version-pin changes land in the PR.
 name: Sync Anytype API
 
 on:
@@ -16,7 +20,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -25,14 +29,20 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Install code generators
-        run: |
-          go install github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi@latest
-          go install github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework@latest
-
       - name: Check for a new Anytype API version
         id: sync
         run: bash scripts/sync-anytype-api.sh
+
+      - name: Validate generation against the new spec
+        if: steps.sync.outputs.changed == 'true'
+        uses: ./.github/actions/generate
+
+      - name: Build + unit tests against regenerated code
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          go mod download
+          go build -v ./...
+          go test -v -cover -timeout=120s -parallel=10 ./...
 
       - name: Open pull request
         if: steps.sync.outputs.changed == 'true'
@@ -45,20 +55,19 @@ jobs:
           body: |
             A new [Anytype API](https://github.com/anyproto/anytype-api) spec version has been published.
 
-            - Previous version: `${{ steps.sync.outputs.current_version }}`
-            - New version: `${{ steps.sync.outputs.latest_version }}`
-            - Spec URL: ${{ steps.sync.outputs.latest_download_url }}
+            - Previous pinned version: `${{ steps.sync.outputs.current_version }}`
+            - New pinned version: `${{ steps.sync.outputs.latest_version }}`
+            - Spec download URL: ${{ steps.sync.outputs.latest_download_url }}
 
-            This PR was produced by `scripts/sync-anytype-api.sh` and contains:
-            - the new `APIVersion` constant in `internal/client/client.go`
-            - the new `OPENAPI_URL` default in `GNUmakefile`
-            - the re-downloaded `codegen/openapi.yaml`
-            - the regenerated provider IR (`codegen/provider_code_spec.json`) and
-              Go schemas under `internal/generated/`.
+            This PR bumps the pinned version strings only:
+            - `APIVersion` constant in `internal/client/client.go`
+            - `OPENAPI_URL` default in `GNUmakefile`
 
-            Please review the CI results carefully — breaking changes in the
-            upstream spec may require hand edits in `internal/provider/` or the
-            generator config before merging.
+            The regenerated provider code is gitignored; CI regenerates it on
+            every run via the `./.github/actions/generate` composite action.
+            This workflow already validated that `make generate` and the unit
+            tests pass against the new spec, but breaking changes may still
+            need hand edits in `internal/provider/` before the PR can merge.
           labels: |
             dependencies
             anytype-api
