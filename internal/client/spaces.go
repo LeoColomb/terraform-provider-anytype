@@ -10,7 +10,8 @@ import (
 	"strconv"
 )
 
-// Space mirrors the Space schema from the Anytype OpenAPI.
+// Space mirrors the Space schema from the Anytype OpenAPI. The Anytype API
+// does not accept an `icon` on CreateSpace/UpdateSpace, so Icon is read-only.
 type Space struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name,omitempty"`
@@ -18,8 +19,7 @@ type Space struct {
 	Object      string `json:"object,omitempty"`
 	NetworkID   string `json:"network_id,omitempty"`
 	GatewayURL  string `json:"gateway_url,omitempty"`
-	// Icon is intentionally kept as raw JSON since it is a oneOf union
-	// (emoji / file / named icon). Users manage it outside of Terraform.
+	Icon        *Icon  `json:"icon,omitempty"`
 }
 
 // CreateSpaceRequest maps to CreateSpaceRequest in the OpenAPI.

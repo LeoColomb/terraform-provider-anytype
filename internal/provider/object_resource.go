@@ -88,6 +88,9 @@ func (r *objectResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 
 	flattenResponseEnvelope(s.Attributes, "object")
 
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconResourceAttribute()
+
 	// After flattening, `space_id` / `name` from the nested envelope would
 	// otherwise shadow our Required overrides — flattenResponseEnvelope
 	// skips conflicts, so top-level wins. The read-only `markdown` from the
@@ -123,6 +126,7 @@ type objectResourceModel struct {
 	Layout     types.String `tfsdk:"layout"`
 	Object     types.String `tfsdk:"object"`
 	Archived   types.Bool   `tfsdk:"archived"`
+	Icon       *iconModel   `tfsdk:"icon"`
 }
 
 func (m *objectResourceModel) fromAPI(o *client.Object) {
@@ -133,6 +137,7 @@ func (m *objectResourceModel) fromAPI(o *client.Object) {
 	m.Snippet = types.StringValue(o.Snippet)
 	m.Object = types.StringValue(o.Object)
 	m.Archived = types.BoolValue(o.Archived)
+	m.Icon = iconFromAPI(o.Icon)
 }
 
 func (r *objectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -146,6 +151,7 @@ func (r *objectResource) Create(ctx context.Context, req resource.CreateRequest,
 		Name:       plan.Name.ValueString(),
 		Body:       plan.Body.ValueString(),
 		TemplateID: plan.TemplateID.ValueString(),
+		Icon:       iconToAPI(plan.Icon),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to create Anytype object", err.Error())
@@ -191,6 +197,9 @@ func (r *objectResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.Body.Equal(state.Body) {
 		b := plan.Body.ValueString()
 		update.Markdown = &b
+	}
+	if !iconsEqual(plan.Icon, state.Icon) {
+		update.Icon = iconToAPI(plan.Icon)
 	}
 
 	updated, err := r.client.UpdateObject(ctx, state.SpaceID.ValueString(), state.ID.ValueString(), update)

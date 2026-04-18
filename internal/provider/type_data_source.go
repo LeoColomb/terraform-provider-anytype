@@ -39,6 +39,7 @@ type typeDataSourceModel struct {
 	Layout     types.String              `tfsdk:"layout"`
 	Object     types.String              `tfsdk:"object"`
 	Archived   types.Bool                `tfsdk:"archived"`
+	Icon       *iconModel                `tfsdk:"icon"`
 	Properties []typePropertyDSReference `tfsdk:"properties"`
 }
 
@@ -61,6 +62,9 @@ func (d *typeDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest,
 	s.MarkdownDescription = "Look up a single Anytype type by ID in a given space."
 
 	flattenResponseEnvelopeDS(s.Attributes, "type")
+
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconDataSourceAttribute()
 
 	s.Attributes["properties"] = schema.ListNestedAttribute{
 		MarkdownDescription: "Properties currently linked to this type.",
@@ -119,6 +123,7 @@ func (d *typeDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	data.Layout = types.StringValue(t.Layout)
 	data.Object = types.StringValue(t.Object)
 	data.Archived = types.BoolValue(t.Archived)
+	data.Icon = iconFromAPI(t.Icon)
 
 	data.Properties = make([]typePropertyDSReference, 0, len(t.Properties))
 	for _, p := range t.Properties {

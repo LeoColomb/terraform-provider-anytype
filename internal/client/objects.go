@@ -11,9 +11,8 @@ import (
 )
 
 // Object mirrors the relevant scalar fields of the ObjectWithBody schema.
-// The polymorphic `icon` and `properties` arrays are omitted — they are
-// left out of the provider surface for the same reasons as the `Type`
-// equivalent (see internal/client/types.go and codegen/generator_config.yml).
+// The polymorphic `properties` array is still omitted — only `icon` is now
+// exposed (see codegen/generator_config.yml for the rationale).
 type Object struct {
 	ID       string `json:"id,omitempty"`
 	SpaceID  string `json:"space_id,omitempty"`
@@ -23,6 +22,7 @@ type Object struct {
 	Snippet  string `json:"snippet,omitempty"`
 	Object   string `json:"object,omitempty"`
 	Archived bool   `json:"archived,omitempty"`
+	Icon     *Icon  `json:"icon,omitempty"`
 }
 
 // CreateObjectRequest maps to CreateObjectRequest in the OpenAPI. Only the
@@ -32,6 +32,7 @@ type CreateObjectRequest struct {
 	Name       string `json:"name,omitempty"`
 	Body       string `json:"body,omitempty"`
 	TemplateID string `json:"template_id,omitempty"`
+	Icon       *Icon  `json:"icon,omitempty"`
 }
 
 // UpdateObjectRequest maps to UpdateObjectRequest in the OpenAPI.
@@ -39,6 +40,7 @@ type UpdateObjectRequest struct {
 	Name     *string `json:"name,omitempty"`
 	Markdown *string `json:"markdown,omitempty"`
 	TypeKey  *string `json:"type_key,omitempty"`
+	Icon     *Icon   `json:"icon,omitempty"`
 }
 
 type objectResponse struct {
