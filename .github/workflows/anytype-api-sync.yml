@@ -1,0 +1,64 @@
+# Scheduled workflow that watches the Anytype API for a new published
+# spec version and opens a pull request that bumps the pinned version +
+# regenerates the provider code when one appears.
+name: Sync Anytype API
+
+on:
+  schedule:
+    # Daily at 07:00 UTC.
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install code generators
+        run: |
+          go install github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi@latest
+          go install github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework@latest
+
+      - name: Check for a new Anytype API version
+        id: sync
+        run: bash scripts/sync-anytype-api.sh
+
+      - name: Open pull request
+        if: steps.sync.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          commit-message: "chore(anytype-api): bump spec to ${{ steps.sync.outputs.latest_version }}"
+          branch: "chore/anytype-api-${{ steps.sync.outputs.latest_version }}"
+          delete-branch: true
+          title: "chore(anytype-api): bump spec to ${{ steps.sync.outputs.latest_version }}"
+          body: |
+            A new [Anytype API](https://github.com/anyproto/anytype-api) spec version has been published.
+
+            - Previous version: `${{ steps.sync.outputs.current_version }}`
+            - New version: `${{ steps.sync.outputs.latest_version }}`
+            - Spec URL: ${{ steps.sync.outputs.latest_download_url }}
+
+            This PR was produced by `scripts/sync-anytype-api.sh` and contains:
+            - the new `APIVersion` constant in `internal/client/client.go`
+            - the new `OPENAPI_URL` default in `GNUmakefile`
+            - the re-downloaded `codegen/openapi.yaml`
+            - the regenerated provider IR (`codegen/provider_code_spec.json`) and
+              Go schemas under `internal/generated/`.
+
+            Please review the CI results carefully — breaking changes in the
+            upstream spec may require hand edits in `internal/provider/` or the
+            generator config before merging.
+          labels: |
+            dependencies
+            anytype-api

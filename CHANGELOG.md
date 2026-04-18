@@ -24,3 +24,7 @@
   scaffolding template, plus a `make lint` / `make check` target.
 - Dependabot config covering Go modules and GitHub Actions, and a
   repository pull request template.
+- Daily `Sync Anytype API` GitHub Actions workflow that watches the upstream
+  `versions.json`, runs `scripts/sync-anytype-api.sh` to bump the pinned
+  spec version and regenerate the provider code, and opens a pull request
+  when a new version is available.
