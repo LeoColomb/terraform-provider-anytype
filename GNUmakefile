@@ -54,6 +54,7 @@ generate-spec: fetch-spec
 # packages so that type names do not collide between resource and data source
 # flavours of the same schema.
 generate-code:
+	mkdir -p $(GEN_RESOURCES_OUT) $(GEN_DATASOURCES_OUT) $(GEN_PROVIDER_OUT)
 	tfplugingen-framework generate resources \
 		--input $(PROVIDER_SPEC) \
 		--output $(GEN_RESOURCES_OUT) \

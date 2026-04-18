@@ -1,19 +1,53 @@
 # Generator configuration for tfplugingen-openapi.
 #
 # Maps the Anytype OpenAPI specification to Terraform provider resources and
-# data sources. Regenerate with `make generate-spec`.
+# data sources. Regenerate with `make generate-spec` (or `make generate`).
 #
-# NOTE ON COVERAGE
-# ----------------
-# The Anytype OpenAPI uses a polymorphic `Icon` (`oneOf`) and generic
-# `PaginatedResponse { data: [...], pagination: {...} }` envelopes. The
-# Terraform Plugin Framework code generator (v0.4.x) does not yet support
-# `oneOf` compositions, and emits colliding Go type names for listing
-# endpoints. As a result this config is intentionally restricted to
-# singular, non-polymorphic operations. The plural list data sources (spaces,
-# types, properties, tags, objects, members, templates) and anything that
-# relies on `Icon` are written by hand on top of the generated schemas — see
-# `internal/provider/`.
+# =============================================================================
+# Known generator limitations and hand-written adaptations
+# =============================================================================
+#
+# The Anytype OpenAPI has two shapes that the Terraform Plugin Framework
+# code generator (tfplugingen-openapi / tfplugingen-framework, v0.4.x) does
+# not yet handle cleanly:
+#
+# 1. A polymorphic `Icon` (`oneOf`) that appears on several response schemas
+#    (space.icon, type.icon, object.icon, member.icon, template.icon) and on
+#    a handful of request bodies (CreateObjectRequest.icon,
+#    CreateTypeRequest.icon, UpdateTypeRequest.icon).
+#
+#    * `oneOf` compositions are explicitly not yet supported — left as-is,
+#      the generator logs `skipping ... schema mapping` warnings and drops
+#      **the whole surrounding schema** for the singular data sources
+#      (space/type/object/member/template), and drops just the response
+#      body for the resource schemas (space/type/object).
+#
+#    * We silence those warnings at the source by adding `schema.ignores`
+#      entries for every `icon` path below, so the rest of each schema
+#      still reaches the generated IR and Go code.
+#
+#    * The `icon` attribute itself is then re-introduced on the Terraform
+#      side where it actually matters, by the hand-written resource and
+#      data source implementations under `internal/provider/`.
+#
+# 2. A generic `PaginatedResponse { data: [...], pagination: {...} }`
+#    envelope shared by every list endpoint. The framework generator emits
+#    the **same** Go type names (`DataType`, `PaginationType`, ...) for
+#    every listing schema, which produces duplicate-declaration errors when
+#    two list data sources land in the same package.
+#
+#    * Until that is addressed upstream this config only registers the
+#      singular read endpoints. The plural list data sources (`anytype_spaces`
+#      and friends) are implemented by hand on top of the HTTP client —
+#      see `internal/provider/spaces_data_source.go` for the canonical
+#      example.
+#
+# Both adaptations live in `internal/provider/`: the CRUD methods, the
+# re-added Icon attribute, the list data sources, and any Optional/Computed
+# tweaks that the generator cannot infer (notably `id` being Computed-only
+# for resources). They layer on top of the generated IR and `_gen.go`
+# schemas in `internal/generated/` and are the single place to update when
+# the upstream OpenAPI evolves.
 
 provider:
   name: anytype
@@ -30,6 +64,11 @@ resources:
       path: /v1/spaces/{space_id}
       method: PATCH
     schema:
+      # `space.icon` is a polymorphic `oneOf` in the response body — see the
+      # note at the top of the file. Dropping it here lets the rest of the
+      # Space response (network_id, gateway_url, object...) reach the IR.
+      ignores:
+        - space.icon
       attributes:
         aliases:
           space_id: id
@@ -48,6 +87,16 @@ resources:
       path: /v1/spaces/{space_id}/types/{type_id}
       method: DELETE
     schema:
+      ignores:
+        - icon             # polymorphic oneOf in CreateTypeRequest / UpdateTypeRequest
+        - type.icon        # polymorphic oneOf in the response body
+        - type.properties  # nested Property[] in the response body — the
+                           #   generator produces the same Go type name
+                           #   (`PropertiesValue`) for the top-level request
+                           #   body and this nested response array, causing
+                           #   duplicate declarations in the resource file.
+                           #   Users can look up properties with
+                           #   `data.anytype_property`.
       attributes:
         aliases:
           type_id: id
@@ -102,6 +151,15 @@ resources:
       path: /v1/spaces/{space_id}/objects/{object_id}
       method: DELETE
     schema:
+      ignores:
+        - icon              # polymorphic oneOf in CreateObjectRequest / UpdateObjectRequest
+        - object.icon       # polymorphic oneOf in the response body
+        - object.type       # nested Type embed; generator would emit a Go
+                            #   field literally named `type`, which is a
+                            #   reserved keyword — exposed via type_key/type_id
+                            #   on the hand-written resource instead
+        - properties        # array of polymorphic PropertyLinkWithValue oneOf values
+        - object.properties
       attributes:
         aliases:
           object_id: id
@@ -112,6 +170,8 @@ data_sources:
       path: /v1/spaces/{space_id}
       method: GET
     schema:
+      ignores:
+        - space.icon
       attributes:
         aliases:
           space_id: id
@@ -121,6 +181,9 @@ data_sources:
       path: /v1/spaces/{space_id}/types/{type_id}
       method: GET
     schema:
+      ignores:
+        - type.icon
+        - type.properties  # see resources.type.schema.ignores for rationale
       attributes:
         aliases:
           type_id: id
@@ -148,6 +211,10 @@ data_sources:
       path: /v1/spaces/{space_id}/objects/{object_id}
       method: GET
     schema:
+      ignores:
+        - object.icon
+        - object.type        # nested Type embed — Go keyword conflict
+        - object.properties  # polymorphic oneOf array
       attributes:
         aliases:
           object_id: id
@@ -157,6 +224,8 @@ data_sources:
       path: /v1/spaces/{space_id}/members/{member_id}
       method: GET
     schema:
+      ignores:
+        - member.icon
       attributes:
         aliases:
           member_id: id
@@ -166,6 +235,10 @@ data_sources:
       path: /v1/spaces/{space_id}/types/{type_id}/templates/{template_id}
       method: GET
     schema:
+      ignores:
+        - template.icon
+        - template.type        # nested Type embed — Go keyword conflict
+        - template.properties  # polymorphic oneOf array
       attributes:
         aliases:
           template_id: id
