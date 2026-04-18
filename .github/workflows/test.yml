@@ -31,7 +31,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: Regenerate provider code
-        uses: ./.github/actions/generate
+        run: make generate
       - run: go mod download
       - run: go build -v ./...
       - name: Run linters
@@ -52,7 +52,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: Regenerate provider code
-        uses: ./.github/actions/generate
+        run: make generate
       - run: go mod download
       - run: go test -v -cover -timeout=120s -parallel=10 ./...
 
@@ -82,7 +82,7 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - name: Regenerate provider code
-        uses: ./.github/actions/generate
+        run: make generate
       - run: go mod download
       - env:
           TF_ACC: "1"

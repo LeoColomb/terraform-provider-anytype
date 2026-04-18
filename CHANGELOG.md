@@ -33,7 +33,9 @@
 
 - Generated provider artefacts (`codegen/openapi.yaml`,
   `codegen/provider_code_spec.json`, everything under `internal/generated/`)
-  are now gitignored. CI regenerates them on every job via a new
-  `.github/actions/generate` composite action, which is also called by the
-  release workflow and the Anytype API sync workflow.
+  are now gitignored. CI regenerates them on every build, test, release,
+  and Anytype API sync job by calling `make generate` directly. The
+  codegen CLIs (`tfplugingen-openapi`, `tfplugingen-framework`) are pinned
+  as indirect dependencies in `tools/tools.go` and resolved via `go run`,
+  so no separate install step is required.
 - Dropped `.github/pull_request_template.md`.

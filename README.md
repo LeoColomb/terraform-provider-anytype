@@ -59,21 +59,17 @@ locally and in CI from [`codegen/generator_config.yml`](./codegen/generator_conf
 by running:
 
 ```sh
-make generate-spec   # runs tfplugingen-openapi (requires the CLI on PATH)
-make generate-code   # runs tfplugingen-framework
+make generate-spec   # runs tfplugingen-openapi via `go run`
+make generate-code   # runs tfplugingen-framework via `go run`
 make generate        # full pipeline
 ```
 
-Install the two codegen CLIs once:
+Both codegen CLIs are pinned as indirect dependencies in
+[`tools/tools.go`](./tools/tools.go), so `go run` resolves them at the
+version recorded in `go.mod` — no separate `go install` step is needed.
 
-```sh
-go install github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi@latest
-go install github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework@latest
-```
-
-CI runs `make generate` via the [`./.github/actions/generate`](./.github/actions/generate/action.yml)
-composite action before every build, test, and release job, so generated
-code is always produced from the currently pinned spec version.
+CI runs `make generate` before every build, test, and release job, so
+generated code is always produced from the currently pinned spec version.
 
 ## Testing
 
