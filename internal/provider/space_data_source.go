@@ -37,6 +37,7 @@ type spaceDataSourceModel struct {
 	NetworkID   types.String `tfsdk:"network_id"`
 	GatewayURL  types.String `tfsdk:"gateway_url"`
 	Object      types.String `tfsdk:"object"`
+	Icon        *iconModel   `tfsdk:"icon"`
 }
 
 func (d *spaceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -52,6 +53,9 @@ func (d *spaceDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest
 		Required:            true,
 	}
 	flattenResponseEnvelopeDS(s.Attributes, "space")
+
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconDataSourceAttribute()
 
 	resp.Schema = s
 }
@@ -94,6 +98,7 @@ func (d *spaceDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 	data.NetworkID = types.StringValue(space.NetworkID)
 	data.GatewayURL = types.StringValue(space.GatewayURL)
 	data.Object = types.StringValue(space.Object)
+	data.Icon = iconFromAPI(space.Icon)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

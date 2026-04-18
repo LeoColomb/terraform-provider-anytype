@@ -19,7 +19,6 @@ type PropertyLink struct {
 }
 
 // Type mirrors the Type schema from the Anytype OpenAPI response body.
-// Icon is intentionally omitted (oneOf polymorphism — left unmanaged).
 type Type struct {
 	ID         string     `json:"id,omitempty"`
 	Key        string     `json:"key,omitempty"`
@@ -28,6 +27,7 @@ type Type struct {
 	Layout     string     `json:"layout,omitempty"`
 	Object     string     `json:"object,omitempty"`
 	Archived   bool       `json:"archived,omitempty"`
+	Icon       *Icon      `json:"icon,omitempty"`
 	Properties []Property `json:"properties,omitempty"`
 }
 
@@ -37,6 +37,7 @@ type CreateTypeRequest struct {
 	Name       string         `json:"name"`
 	PluralName string         `json:"plural_name"`
 	Layout     string         `json:"layout"`
+	Icon       *Icon          `json:"icon,omitempty"`
 	Properties []PropertyLink `json:"properties,omitempty"`
 }
 
@@ -47,6 +48,7 @@ type UpdateTypeRequest struct {
 	Name       *string         `json:"name,omitempty"`
 	PluralName *string         `json:"plural_name,omitempty"`
 	Layout     *string         `json:"layout,omitempty"`
+	Icon       *Icon           `json:"icon,omitempty"`
 	Properties *[]PropertyLink `json:"properties,omitempty"`
 }
 

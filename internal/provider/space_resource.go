@@ -63,6 +63,11 @@ func (r *spaceResource) Schema(ctx context.Context, _ resource.SchemaRequest, re
 	// anytype_space.foo.space.network_id).
 	flattenResponseEnvelope(s.Attributes, "space")
 
+	// Re-introduce `icon` (dropped by the OpenAPI generator because it is a
+	// `oneOf`). The Anytype API does not accept icon writes on Create/Update
+	// Space, so this attribute is read-only on the resource.
+	s.Attributes["icon"] = iconResourceAttributeReadOnly()
+
 	resp.Schema = s
 }
 
@@ -89,6 +94,7 @@ type spaceResourceModel struct {
 	NetworkID   types.String `tfsdk:"network_id"`
 	GatewayURL  types.String `tfsdk:"gateway_url"`
 	Object      types.String `tfsdk:"object"`
+	Icon        *iconModel   `tfsdk:"icon"`
 }
 
 func (m *spaceResourceModel) fromAPI(s *client.Space) {
@@ -98,6 +104,7 @@ func (m *spaceResourceModel) fromAPI(s *client.Space) {
 	m.NetworkID = types.StringValue(s.NetworkID)
 	m.GatewayURL = types.StringValue(s.GatewayURL)
 	m.Object = types.StringValue(s.Object)
+	m.Icon = iconFromAPI(s.Icon)
 }
 
 func (r *spaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

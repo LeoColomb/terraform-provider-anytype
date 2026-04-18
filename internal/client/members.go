@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-// Member mirrors the Member schema from the Anytype OpenAPI (icon omitted).
+// Member mirrors the Member schema from the Anytype OpenAPI.
 type Member struct {
 	ID         string `json:"id,omitempty"`
 	Identity   string `json:"identity,omitempty"`
@@ -19,6 +19,7 @@ type Member struct {
 	Role       string `json:"role,omitempty"`
 	Status     string `json:"status,omitempty"`
 	Object     string `json:"object,omitempty"`
+	Icon       *Icon  `json:"icon,omitempty"`
 }
 
 type memberResponse struct {

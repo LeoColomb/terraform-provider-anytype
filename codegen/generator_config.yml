@@ -14,7 +14,7 @@
 # 1. A polymorphic `Icon` (`oneOf`) that appears on several response schemas
 #    (space.icon, type.icon, object.icon, member.icon, template.icon) and on
 #    a handful of request bodies (CreateObjectRequest.icon,
-#    CreateTypeRequest.icon, UpdateTypeRequest.icon).
+#    CreateTypeRequest.icon, UpdateTypeRequest.icon, UpdateObjectRequest.icon).
 #
 #    * `oneOf` compositions are explicitly not yet supported — left as-is,
 #      the generator logs `skipping ... schema mapping` warnings and drops
@@ -26,9 +26,13 @@
 #      entries for every `icon` path below, so the rest of each schema
 #      still reaches the generated IR and Go code.
 #
-#    * The `icon` attribute itself is then re-introduced on the Terraform
-#      side where it actually matters, by the hand-written resource and
-#      data source implementations under `internal/provider/`.
+#    * The `icon` attribute is then re-introduced by hand in
+#      `internal/provider/icon.go`, which exposes a single nested object
+#      `{ format, emoji, file, name, color }` for all three Icon variants.
+#      The `format` discriminator (one of `emoji`, `file`, `icon`) tells the
+#      JSON marshaller in `internal/client/icon.go` which variant fields to
+#      emit on the wire. This keeps the union behaviour of the Anytype API
+#      while staying within the framework's flat-attribute model.
 #
 # 2. A generic `PaginatedResponse { data: [...], pagination: {...} }`
 #    envelope shared by every list endpoint. The framework generator emits

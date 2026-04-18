@@ -39,6 +39,7 @@ type objectDataSourceModel struct {
 	Layout   types.String `tfsdk:"layout"`
 	Object   types.String `tfsdk:"object"`
 	Archived types.Bool   `tfsdk:"archived"`
+	Icon     *iconModel   `tfsdk:"icon"`
 }
 
 func (d *objectDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -61,6 +62,9 @@ func (d *objectDataSource) Schema(ctx context.Context, _ datasource.SchemaReques
 	delete(s.Attributes, "format")
 
 	flattenResponseEnvelopeDS(s.Attributes, "object")
+
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconDataSourceAttribute()
 
 	resp.Schema = s
 }
@@ -105,6 +109,7 @@ func (d *objectDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	data.Layout = types.StringValue(o.Layout)
 	data.Object = types.StringValue(o.Object)
 	data.Archived = types.BoolValue(o.Archived)
+	data.Icon = iconFromAPI(o.Icon)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

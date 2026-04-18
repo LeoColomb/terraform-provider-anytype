@@ -97,6 +97,9 @@ func (r *typeResource) Schema(ctx context.Context, _ resource.SchemaRequest, res
 
 	flattenResponseEnvelope(s.Attributes, "type")
 
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconResourceAttribute()
+
 	resp.Schema = s
 }
 
@@ -125,6 +128,7 @@ type typeResourceModel struct {
 	Layout     types.String        `tfsdk:"layout"`
 	Object     types.String        `tfsdk:"object"`
 	Archived   types.Bool          `tfsdk:"archived"`
+	Icon       *iconModel          `tfsdk:"icon"`
 	Properties []propertyLinkModel `tfsdk:"properties"`
 }
 
@@ -142,6 +146,7 @@ func (m *typeResourceModel) fromAPI(t *client.Type) {
 	m.Layout = types.StringValue(t.Layout)
 	m.Object = types.StringValue(t.Object)
 	m.Archived = types.BoolValue(t.Archived)
+	m.Icon = iconFromAPI(t.Icon)
 }
 
 func (m *typeResourceModel) propertyLinks() []client.PropertyLink {
@@ -171,6 +176,7 @@ func (r *typeResource) Create(ctx context.Context, req resource.CreateRequest, r
 		Name:       plan.Name.ValueString(),
 		PluralName: plan.PluralName.ValueString(),
 		Layout:     plan.Layout.ValueString(),
+		Icon:       iconToAPI(plan.Icon),
 		Properties: plan.propertyLinks(),
 	})
 	if err != nil {
@@ -231,6 +237,9 @@ func (r *typeResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	if !propertyLinksEqual(plan.Properties, state.Properties) {
 		links := plan.propertyLinks()
 		update.Properties = &links
+	}
+	if !iconsEqual(plan.Icon, state.Icon) {
+		update.Icon = iconToAPI(plan.Icon)
 	}
 
 	updated, err := r.client.UpdateType(ctx, state.SpaceID.ValueString(), state.ID.ValueString(), update)

@@ -39,6 +39,7 @@ type memberDataSourceModel struct {
 	Role       types.String `tfsdk:"role"`
 	Status     types.String `tfsdk:"status"`
 	Object     types.String `tfsdk:"object"`
+	Icon       *iconModel   `tfsdk:"icon"`
 }
 
 func (d *memberDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -58,6 +59,9 @@ func (d *memberDataSource) Schema(ctx context.Context, _ datasource.SchemaReques
 		Required:            true,
 	}
 	flattenResponseEnvelopeDS(s.Attributes, "member")
+
+	// Re-introduce `icon` (dropped by the OpenAPI generator due to oneOf).
+	s.Attributes["icon"] = iconDataSourceAttribute()
 
 	resp.Schema = s
 }
@@ -102,6 +106,7 @@ func (d *memberDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	data.Role = types.StringValue(m.Role)
 	data.Status = types.StringValue(m.Status)
 	data.Object = types.StringValue(m.Object)
+	data.Icon = iconFromAPI(m.Icon)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
