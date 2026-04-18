@@ -9,6 +9,11 @@ GEN_RESOURCES_OUT    ?= internal/generated/resource_schemas
 GEN_DATASOURCES_OUT  ?= internal/generated/datasource_schemas
 GEN_PROVIDER_OUT     ?= internal/generated/provider_schema
 
+# Codegen CLIs are pinned as indirect dependencies in tools/tools.go, so
+# `go run` resolves them at the version recorded in go.mod.
+TFPLUGINGEN_OPENAPI    ?= go run github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi
+TFPLUGINGEN_FRAMEWORK  ?= go run github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework
+
 default: fmt lint build test
 
 build:
@@ -44,7 +49,7 @@ fetch-spec: $(OPENAPI_SPEC)
 
 # Generate the Provider Code Specification (IR JSON) from the OpenAPI document.
 generate-spec: fetch-spec
-	tfplugingen-openapi generate \
+	$(TFPLUGINGEN_OPENAPI) generate \
 		--config $(GENERATOR_CONFIG) \
 		--output $(PROVIDER_SPEC) \
 		$(OPENAPI_SPEC)
@@ -55,15 +60,15 @@ generate-spec: fetch-spec
 # flavours of the same schema.
 generate-code:
 	mkdir -p $(GEN_RESOURCES_OUT) $(GEN_DATASOURCES_OUT) $(GEN_PROVIDER_OUT)
-	tfplugingen-framework generate resources \
+	$(TFPLUGINGEN_FRAMEWORK) generate resources \
 		--input $(PROVIDER_SPEC) \
 		--output $(GEN_RESOURCES_OUT) \
 		--package resource_schemas
-	tfplugingen-framework generate data-sources \
+	$(TFPLUGINGEN_FRAMEWORK) generate data-sources \
 		--input $(PROVIDER_SPEC) \
 		--output $(GEN_DATASOURCES_OUT) \
 		--package datasource_schemas
-	tfplugingen-framework generate provider \
+	$(TFPLUGINGEN_FRAMEWORK) generate provider \
 		--input $(PROVIDER_SPEC) \
 		--output $(GEN_PROVIDER_OUT) \
 		--package provider_schema

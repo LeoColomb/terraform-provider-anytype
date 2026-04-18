@@ -1,9 +1,9 @@
 # Scheduled workflow that watches the Anytype API for a new published spec
 # version and opens a pull request bumping the pinned version.
 #
-# When a bump is detected, the workflow also runs the generate composite
-# action to validate that the new spec still produces compilable provider
-# code before the PR is opened — the regenerated files themselves are
+# When a bump is detected, the workflow also runs `make generate` to
+# validate that the new spec still produces compilable provider code
+# before the PR is opened — the regenerated files themselves are
 # gitignored, so only the version-pin changes land in the PR.
 name: Sync Anytype API
 
@@ -35,7 +35,7 @@ jobs:
 
       - name: Validate generation against the new spec
         if: steps.sync.outputs.changed == 'true'
-        uses: ./.github/actions/generate
+        run: make generate
 
       - name: Build + unit tests against regenerated code
         if: steps.sync.outputs.changed == 'true'
@@ -63,11 +63,12 @@ jobs:
             - `APIVersion` constant in `internal/client/client.go`
             - `OPENAPI_URL` default in `GNUmakefile`
 
-            The regenerated provider code is gitignored; CI regenerates it on
-            every run via the `./.github/actions/generate` composite action.
-            This workflow already validated that `make generate` and the unit
-            tests pass against the new spec, but breaking changes may still
-            need hand edits in `internal/provider/` before the PR can merge.
+            The regenerated provider code is gitignored; CI regenerates it
+            on every run via `make generate` (codegen CLIs are pinned in
+            `tools/tools.go` and resolved via `go run`). This workflow
+            already validated that `make generate` and the unit tests pass
+            against the new spec, but breaking changes may still need hand
+            edits in `internal/provider/` before the PR can merge.
           labels: |
             dependencies
             anytype-api
