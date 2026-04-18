@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
@@ -59,11 +61,35 @@ func (r *objectResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			stringplanmodifier.RequiresReplace(),
 		},
 	}
-	s.Attributes["type_key"] = schema.StringAttribute{
-		MarkdownDescription: "The key of the type of the object. Changing this forces a new resource.",
-		Required:            true,
+	// Exactly one of `type_id` / `type_key` must be set. `type_id` is the
+	// preferred way to reference a managed `anytype_type` — the provider
+	// resolves its `key` automatically, so consumers never have to reach into
+	// `anytype_type.foo.key`. `type_key` remains available for built-in
+	// types that are not managed as Terraform resources.
+	s.Attributes["type_id"] = schema.StringAttribute{
+		MarkdownDescription: "The ID of the `anytype_type` of the object. " +
+			"Mutually exclusive with `type_key`. Changing this forces a new resource.",
+		Optional: true,
+		Computed: true,
 		PlanModifiers: []planmodifier.String{
 			stringplanmodifier.RequiresReplace(),
+			stringplanmodifier.UseStateForUnknown(),
+		},
+		Validators: []validator.String{
+			stringvalidator.ExactlyOneOf(
+				path.MatchRoot("type_id"),
+				path.MatchRoot("type_key"),
+			),
+		},
+	}
+	s.Attributes["type_key"] = schema.StringAttribute{
+		MarkdownDescription: "The key of the type of the object. " +
+			"Mutually exclusive with `type_id`. Changing this forces a new resource.",
+		Optional: true,
+		Computed: true,
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+			stringplanmodifier.UseStateForUnknown(),
 		},
 	}
 	s.Attributes["template_id"] = schema.StringAttribute{
@@ -117,6 +143,7 @@ func (r *objectResource) Configure(_ context.Context, req resource.ConfigureRequ
 type objectResourceModel struct {
 	ID         types.String `tfsdk:"id"`
 	SpaceID    types.String `tfsdk:"space_id"`
+	TypeID     types.String `tfsdk:"type_id"`
 	TypeKey    types.String `tfsdk:"type_key"`
 	TemplateID types.String `tfsdk:"template_id"`
 	Name       types.String `tfsdk:"name"`
@@ -146,6 +173,24 @@ func (r *objectResource) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// When the user references a type via `type_id`, look up the `type_key`
+	// required by the Anytype API so they don't have to wire both attributes
+	// themselves.
+	if plan.TypeKey.IsNull() || plan.TypeKey.IsUnknown() || plan.TypeKey.ValueString() == "" {
+		if plan.TypeID.IsNull() || plan.TypeID.IsUnknown() || plan.TypeID.ValueString() == "" {
+			resp.Diagnostics.AddError("Missing type reference",
+				"Exactly one of `type_id` or `type_key` must be set on anytype_object.")
+			return
+		}
+		t, err := r.client.GetType(ctx, plan.SpaceID.ValueString(), plan.TypeID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to resolve type_id", err.Error())
+			return
+		}
+		plan.TypeKey = types.StringValue(t.Key)
+	}
+
 	created, err := r.client.CreateObject(ctx, plan.SpaceID.ValueString(), client.CreateObjectRequest{
 		TypeKey:    plan.TypeKey.ValueString(),
 		Name:       plan.Name.ValueString(),
@@ -158,7 +203,8 @@ func (r *objectResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 	plan.fromAPI(created)
-	// Body is a write-only create payload; keep the config value in state.
+	// type_id / type_key are not echoed back by the Create response; keep
+	// whatever the plan supplied so both are populated in state.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

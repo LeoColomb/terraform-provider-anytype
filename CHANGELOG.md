@@ -34,6 +34,17 @@
 
 ### Changed
 
+- `anytype_type.properties` now accepts `{ id = anytype_property.foo.id }`
+  entries instead of the `{ key, name, format }` triplet. The provider
+  resolves the backend-required `key` / `name` / `format` from the referenced
+  property, so consuming resources no longer have to re-declare attributes
+  they do not own. `key`, `name`, and `format` are now Computed inside the
+  nested block. **This is a breaking change to the schema**; configurations
+  using the old triplet must be updated.
+- `anytype_object` now accepts `type_id` as an alternative to `type_key`.
+  Referencing the type by id lets the provider look up the backend key
+  automatically. Exactly one of the two must be set; `type_key` is now also
+  Computed so it is populated in state when only `type_id` was supplied.
 - All hand-written resources and data sources now layer their schemas on top
   of the code-generated schemas under `internal/generated/`
   (`resource_schemas` / `datasource_schemas`). The OpenAPI-derived validators

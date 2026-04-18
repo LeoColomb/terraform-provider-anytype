@@ -1,6 +1,8 @@
 # Manage an Anytype space and populate it with a custom type whose shape is
-# described by a handful of properties. The two property resources below are
-# referenced by the `anytype_type` via their key / name / format triplet.
+# described by a handful of properties. The property resources below are
+# linked to the `anytype_type` by `id` alone — the provider resolves the
+# backend-required key / name / format triplet automatically, so the consuming
+# `anytype_type` never has to re-assign attributes of `anytype_property`.
 
 resource "anytype_space" "crm" {
   name        = "CRM"
@@ -38,21 +40,9 @@ resource "anytype_type" "account" {
   layout      = "basic"
 
   properties = [
-    {
-      key    = anytype_property.status.key
-      name   = anytype_property.status.name
-      format = anytype_property.status.format
-    },
-    {
-      key    = anytype_property.owner.key
-      name   = anytype_property.owner.name
-      format = anytype_property.owner.format
-    },
-    {
-      key    = anytype_property.next_followup.key
-      name   = anytype_property.next_followup.name
-      format = anytype_property.next_followup.format
-    },
+    { id = anytype_property.status.id },
+    { id = anytype_property.owner.id },
+    { id = anytype_property.next_followup.id },
   ]
 }
 
