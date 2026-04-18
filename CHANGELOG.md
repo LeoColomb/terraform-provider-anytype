@@ -13,6 +13,35 @@
   and `ANYTYPE_API_VERSION` environment variables).
 - `anytype_space` resource (create, read, update, import).
 - `anytype_space` and `anytype_spaces` data sources.
+- `anytype_type` resource (create, read, update, delete, import) with support
+  for linking properties by `key`/`name`/`format`, plus matching
+  `anytype_type` and `anytype_types` data sources.
+- `anytype_property` resource (create, read, update, delete, import) with
+  optional create-time `tags` seeding for `select` / `multi_select`
+  formats, plus matching `anytype_property` and `anytype_properties` data
+  sources.
+- End-to-end examples under `examples/resources/anytype_type/` showing how
+  to declare a space, properties, and a type with linked properties
+  together.
+- `anytype_tag` resource (create, read, update, delete, import) and matching
+  `anytype_tag` / `anytype_tags` data sources for managing tags on
+  `select` / `multi_select` properties.
+- `anytype_object` resource (create, read, update, delete, import) and
+  matching `anytype_object` / `anytype_objects` data sources for managing
+  concrete objects inside a space.
+- `anytype_member` and `anytype_members` data sources (read-only).
+- `anytype_template` and `anytype_templates` data sources (read-only).
+
+### Changed
+
+- All hand-written resources and data sources now layer their schemas on top
+  of the code-generated schemas under `internal/generated/`
+  (`resource_schemas` / `datasource_schemas`). The OpenAPI-derived validators
+  (notably the OneOf enums for `layout`, `format`, and tag `color`) and
+  descriptions are picked up automatically; the hand-written code only
+  overrides the attributes that Terraform-specific behaviour requires
+  (Computed-only `id`, RequiresReplace on scope path parameters, flattened
+  response envelope, stripped CustomType wrappers).
 - Thin typed HTTP client for the Anytype API with unit tests.
 - GitHub Actions workflows for build + lint + unit tests on every push/PR,
   a reproducibility check that `make generate` produces no diff, and an

@@ -101,6 +101,10 @@ func (p *AnytypeProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *AnytypeProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewSpaceResource,
+		NewTypeResource,
+		NewPropertyResource,
+		NewTagResource,
+		NewObjectResource,
 	}
 }
 
@@ -108,6 +112,18 @@ func (p *AnytypeProvider) DataSources(_ context.Context) []func() datasource.Dat
 	return []func() datasource.DataSource{
 		NewSpaceDataSource,
 		NewSpacesDataSource,
+		NewTypeDataSource,
+		NewTypesDataSource,
+		NewPropertyDataSource,
+		NewPropertiesDataSource,
+		NewTagDataSource,
+		NewTagsDataSource,
+		NewObjectDataSource,
+		NewObjectsDataSource,
+		NewMemberDataSource,
+		NewMembersDataSource,
+		NewTemplateDataSource,
+		NewTemplatesDataSource,
 	}
 }
 
