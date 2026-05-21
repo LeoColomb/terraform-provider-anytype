@@ -4,27 +4,48 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	datasourceschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	resourceschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"github.com/LeoColomb/terraform-provider-anytype/internal/client"
 )
 
-// iconModel is the Terraform state representation of an Anytype icon. Anytype
-// expresses icons as a `oneOf` (EmojiIcon | FileIcon | NamedIcon) discriminated
-// by `format`. The Terraform Plugin Framework code generator does not yet
-// support polymorphic schemas, so we expose a single nested object with the
-// union of fields and rely on the discriminator to pick the right variant on
-// the wire (see internal/client/icon.go).
+// iconModel is the decoded representation used when extracting a types.Object
+// into Go fields via ObjectAs. The on-model representation is types.Object so
+// that Unknown plan values (Computed icons) round-trip through req.Plan.Get
+// without the "target type cannot handle unknown values" error.
+//
+// Anytype expresses icons as a `oneOf` (EmojiIcon | FileIcon | NamedIcon)
+// discriminated by `format`. The Terraform Plugin Framework code generator
+// does not yet support polymorphic schemas, so we expose a single nested
+// object with the union of fields and rely on the discriminator to pick the
+// right variant on the wire (see internal/client/icon.go).
 type iconModel struct {
 	Format types.String `tfsdk:"format"`
 	Emoji  types.String `tfsdk:"emoji"`
 	File   types.String `tfsdk:"file"`
 	Name   types.String `tfsdk:"name"`
 	Color  types.String `tfsdk:"color"`
+}
+
+// iconAttrTypes is the attribute-type map for the icon nested object. It must
+// stay in sync with the schema attributes declared below.
+func iconAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"format": types.StringType,
+		"emoji":  types.StringType,
+		"file":   types.StringType,
+		"name":   types.StringType,
+		"color":  types.StringType,
+	}
 }
 
 const iconMarkdown = "Polymorphic Anytype icon. The `format` field selects which " +
@@ -102,29 +123,40 @@ func iconDataSourceAttribute() datasourceschema.SingleNestedAttribute {
 	}
 }
 
-// iconFromAPI converts a *client.Icon (possibly nil) into a *iconModel suitable
-// for storage on a resource/data source model.
-func iconFromAPI(i *client.Icon) *iconModel {
+// iconFromAPI converts a *client.Icon (possibly nil) into a types.Object
+// suitable for storage on a resource/data source model. A nil or zero-value
+// icon is encoded as ObjectNull so it round-trips cleanly through state.
+func iconFromAPI(i *client.Icon) types.Object {
 	if i == nil || (*i == client.Icon{}) {
-		return nil
+		return types.ObjectNull(iconAttrTypes())
 	}
-	return &iconModel{
-		Format: types.StringValue(i.Format),
-		Emoji:  stringOrNull(i.Emoji),
-		File:   stringOrNull(i.File),
-		Name:   stringOrNull(i.Name),
-		Color:  stringOrNull(i.Color),
-	}
+	obj, _ := types.ObjectValue(iconAttrTypes(), map[string]attr.Value{
+		"format": types.StringValue(i.Format),
+		"emoji":  stringOrNull(i.Emoji),
+		"file":   stringOrNull(i.File),
+		"name":   stringOrNull(i.Name),
+		"color":  stringOrNull(i.Color),
+	})
+	return obj
 }
 
-// iconToAPI converts a *iconModel from Terraform plan/state into the wire
-// payload expected by the API. Returns nil if the icon is unset.
-func iconToAPI(m *iconModel) *client.Icon {
-	if m == nil {
-		return nil
+// iconToAPI converts a types.Object from Terraform plan/state into the wire
+// payload expected by the API. Returns nil when the icon is null, unknown, or
+// missing its discriminator.
+func iconToAPI(ctx context.Context, o types.Object) (*client.Icon, diag.Diagnostics) {
+	if o.IsNull() || o.IsUnknown() {
+		return nil, nil
+	}
+	var m iconModel
+	diags := o.As(ctx, &m, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	})
+	if diags.HasError() {
+		return nil, diags
 	}
 	if m.Format.IsNull() || m.Format.IsUnknown() {
-		return nil
+		return nil, diags
 	}
 	return &client.Icon{
 		Format: m.Format.ValueString(),
@@ -132,26 +164,22 @@ func iconToAPI(m *iconModel) *client.Icon {
 		File:   m.File.ValueString(),
 		Name:   m.Name.ValueString(),
 		Color:  m.Color.ValueString(),
-	}
+	}, diags
 }
 
-// iconsEqual reports whether two iconModel pointers carry the same payload.
-// nil and a model whose Format is null/unknown are treated as equal so the
-// "no icon" cases match.
-func iconsEqual(a, b *iconModel) bool {
-	an := a == nil || a.Format.IsNull() || a.Format.IsUnknown()
-	bn := b == nil || b.Format.IsNull() || b.Format.IsUnknown()
+// iconsEqual reports whether two icon objects carry the same payload. Null
+// and Unknown are treated as equivalent "no icon" so refresh-time fills don't
+// trigger spurious update calls.
+func iconsEqual(a, b types.Object) bool {
+	an := a.IsNull() || a.IsUnknown()
+	bn := b.IsNull() || b.IsUnknown()
 	if an && bn {
 		return true
 	}
 	if an != bn {
 		return false
 	}
-	return a.Format.Equal(b.Format) &&
-		a.Emoji.Equal(b.Emoji) &&
-		a.File.Equal(b.File) &&
-		a.Name.Equal(b.Name) &&
-		a.Color.Equal(b.Color)
+	return a.Equal(b)
 }
 
 func stringOrNull(s string) types.String {

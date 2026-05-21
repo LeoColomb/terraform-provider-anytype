@@ -39,7 +39,7 @@ type typeDataSourceModel struct {
 	Layout     types.String              `tfsdk:"layout"`
 	Object     types.String              `tfsdk:"object"`
 	Archived   types.Bool                `tfsdk:"archived"`
-	Icon       *iconModel                `tfsdk:"icon"`
+	Icon       types.Object              `tfsdk:"icon"`
 	Properties []typePropertyDSReference `tfsdk:"properties"`
 }
 
