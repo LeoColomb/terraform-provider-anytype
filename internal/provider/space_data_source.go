@@ -37,7 +37,7 @@ type spaceDataSourceModel struct {
 	NetworkID   types.String `tfsdk:"network_id"`
 	GatewayURL  types.String `tfsdk:"gateway_url"`
 	Object      types.String `tfsdk:"object"`
-	Icon        *iconModel   `tfsdk:"icon"`
+	Icon        types.Object `tfsdk:"icon"`
 }
 
 func (d *spaceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {

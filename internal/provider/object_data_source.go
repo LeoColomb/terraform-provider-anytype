@@ -39,7 +39,7 @@ type objectDataSourceModel struct {
 	Layout   types.String `tfsdk:"layout"`
 	Object   types.String `tfsdk:"object"`
 	Archived types.Bool   `tfsdk:"archived"`
-	Icon     *iconModel   `tfsdk:"icon"`
+	Icon     types.Object `tfsdk:"icon"`
 }
 
 func (d *objectDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {

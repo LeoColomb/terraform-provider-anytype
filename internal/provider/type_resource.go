@@ -149,7 +149,7 @@ type typeResourceModel struct {
 	Layout     types.String        `tfsdk:"layout"`
 	Object     types.String        `tfsdk:"object"`
 	Archived   types.Bool          `tfsdk:"archived"`
-	Icon       *iconModel          `tfsdk:"icon"`
+	Icon       types.Object        `tfsdk:"icon"`
 	Properties []propertyLinkModel `tfsdk:"properties"`
 }
 
@@ -241,12 +241,18 @@ func (r *typeResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	icon, iconDiags := iconToAPI(ctx, plan.Icon)
+	resp.Diagnostics.Append(iconDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	created, err := r.client.CreateType(ctx, plan.SpaceID.ValueString(), client.CreateTypeRequest{
 		Key:        plan.Key.ValueString(),
 		Name:       plan.Name.ValueString(),
 		PluralName: plan.PluralName.ValueString(),
 		Layout:     plan.Layout.ValueString(),
-		Icon:       iconToAPI(plan.Icon),
+		Icon:       icon,
 		Properties: plan.propertyLinks(),
 	})
 	if err != nil {
@@ -317,7 +323,12 @@ func (r *typeResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		update.Properties = &links
 	}
 	if !iconsEqual(plan.Icon, state.Icon) {
-		update.Icon = iconToAPI(plan.Icon)
+		icon, iconDiags := iconToAPI(ctx, plan.Icon)
+		resp.Diagnostics.Append(iconDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		update.Icon = icon
 	}
 
 	updated, err := r.client.UpdateType(ctx, state.SpaceID.ValueString(), state.ID.ValueString(), update)

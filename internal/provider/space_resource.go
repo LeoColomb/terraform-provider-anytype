@@ -94,7 +94,7 @@ type spaceResourceModel struct {
 	NetworkID   types.String `tfsdk:"network_id"`
 	GatewayURL  types.String `tfsdk:"gateway_url"`
 	Object      types.String `tfsdk:"object"`
-	Icon        *iconModel   `tfsdk:"icon"`
+	Icon        types.Object `tfsdk:"icon"`
 }
 
 func (m *spaceResourceModel) fromAPI(s *client.Space) {

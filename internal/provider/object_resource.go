@@ -153,7 +153,7 @@ type objectResourceModel struct {
 	Layout     types.String `tfsdk:"layout"`
 	Object     types.String `tfsdk:"object"`
 	Archived   types.Bool   `tfsdk:"archived"`
-	Icon       *iconModel   `tfsdk:"icon"`
+	Icon       types.Object `tfsdk:"icon"`
 }
 
 func (m *objectResourceModel) fromAPI(o *client.Object) {
@@ -191,12 +191,18 @@ func (r *objectResource) Create(ctx context.Context, req resource.CreateRequest,
 		plan.TypeKey = types.StringValue(t.Key)
 	}
 
+	icon, iconDiags := iconToAPI(ctx, plan.Icon)
+	resp.Diagnostics.Append(iconDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	created, err := r.client.CreateObject(ctx, plan.SpaceID.ValueString(), client.CreateObjectRequest{
 		TypeKey:    plan.TypeKey.ValueString(),
 		Name:       plan.Name.ValueString(),
 		Body:       plan.Body.ValueString(),
 		TemplateID: plan.TemplateID.ValueString(),
-		Icon:       iconToAPI(plan.Icon),
+		Icon:       icon,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to create Anytype object", err.Error())
@@ -245,7 +251,12 @@ func (r *objectResource) Update(ctx context.Context, req resource.UpdateRequest,
 		update.Markdown = &b
 	}
 	if !iconsEqual(plan.Icon, state.Icon) {
-		update.Icon = iconToAPI(plan.Icon)
+		icon, iconDiags := iconToAPI(ctx, plan.Icon)
+		resp.Diagnostics.Append(iconDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		update.Icon = icon
 	}
 
 	updated, err := r.client.UpdateObject(ctx, state.SpaceID.ValueString(), state.ID.ValueString(), update)

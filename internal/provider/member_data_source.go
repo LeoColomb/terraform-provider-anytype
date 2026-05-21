@@ -39,7 +39,7 @@ type memberDataSourceModel struct {
 	Role       types.String `tfsdk:"role"`
 	Status     types.String `tfsdk:"status"`
 	Object     types.String `tfsdk:"object"`
-	Icon       *iconModel   `tfsdk:"icon"`
+	Icon       types.Object `tfsdk:"icon"`
 }
 
 func (d *memberDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
